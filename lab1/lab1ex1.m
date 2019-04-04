@@ -4,20 +4,19 @@ clc; clear; close all;
 format short
 
 % NominalUEREfixed.
-filename = "dataset_HEL_20180328T122158";
+filename = "dataset_HEL_20180328T122158";  % Helsinki
 place = '     HEL';  % Label for world plot
 
 P1 = load(filename);
 time = length(P1.RHO.GPS(1,:));
-xTicks = [0 : 400 : 3600];
+xTicks = [0 : 400 : time];
 
-sat = zeros(1,3600);
+sat = zeros(1,time);
 for s = 1 : time
     sat(s) = sum(not(isnan(P1.RHO.GPS(:,s))));
 end
 
-
-%% Least Mean Square
+%% Recursive Least Mean Square
 
 for n = 1 : time  % time instants
     
@@ -46,17 +45,16 @@ for n = 1 : time  % time instants
             e = P1.SAT_POS_ECEF.GPS(visSat(s)).pos(n,:) - xHat(1:3);
             rhoHat(s) = sqrt(sum(e.^2));
             H(s,1:3) = [e/rhoHat(s)];
-            H(:,4) = 1; 
         end  
         
         % Step 1: DeltaRhoHat  
         eRhoHat = rhoHat' - rho(visSat);
         
         % Step 2: DeltaXHat
-        eXHat = (inv((H)'*H))*H'*eRhoHat;
+        eXHat = (inv(H.'*H))*H.'*eRhoHat;
         
         % Step3: xHat
-        xHat = xHat + eXHat';
+        xHat = xHat + eXHat.';
     end
     
     Q = inv(H'*H);
@@ -67,9 +65,23 @@ for n = 1 : time  % time instants
     clear xHat
 end
 
-for nPos = 1 : length(pos)
-    coord(nPos, 1:3) = ecef2lla(pos(nPos, 1:3));  %coord è in lon,lat,alt
+for tPos = 1 : length(pos)
+    coord(tPos, 1:3) = ecef2lla(pos(tPos, 1:3));  %coord è in lon,lat,alt
 end
+
+r = P1.RHO.GPS(1,:);
+r = r(~(isnan(r(1,:))));
+diffR = diff(r, 2);
+mean(diffR)
+
+r = P1.RHO.GPS(12,:);
+r = r(~(isnan(r(1,:))));
+diffR = diff(r, 2);
+mean(diffR)
+
+% Save position for Google Earth
+filename = 'Helsinki.m';
+writeKML_GoogleEarth(filename, coord(:, 1), coord(:, 2), coord(:, 3))
 
 %plot(errors)
 %H2=H(1:end-1,1:end-1)
@@ -83,7 +95,7 @@ xlabel("Time")
 ylabel("Number of visible satellites")
 title("Number of visible satellites vs Time")
 ylim([11.5, 17.5])
-xlim([0,3600])
+xlim([0,time])
 xticks(xTicks);
 grid on
 
@@ -93,7 +105,7 @@ plot([1:1:time], P1.RHO.GPS', '.')
 xlabel("Time")
 ylabel("Pseudorange")
 title("Pseudoranges vs Time")
-xlim([0,3600])
+xlim([0,time])
 xticks(xTicks);
 grid on
 
@@ -122,10 +134,11 @@ axis square; grid on;
 
 %% Plot: PDOP vs time.
 figure(5)
+hold on
 plot(pdop)
 title("Position dilution of precision")
 grid minor
 xlabel('Time')
 ylabel('PDOP')
-xlim([0,3600])
+xlim([0,time])
 xticks(xTicks);

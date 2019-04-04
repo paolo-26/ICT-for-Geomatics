@@ -8,7 +8,7 @@ P2 = load(filename2);
 
 %place='    HEL'
 time = length(P2.RHO.GPS(1, :));
-xTicks = [0 : 400 : 3600];
+xTicks = [0 : 400 : time];
 for s = 1 : time
     sat(s) = sum(not(isnan(P2.RHO.GPS(:, s))));
 end
@@ -181,7 +181,7 @@ title("Position dilution of precision")
 grid minor
 xlabel('Time')
 ylabel('pdop')
-xlim([0,3600])
+xlim([0,time])
 xticks(xTicks);
 
 figure
