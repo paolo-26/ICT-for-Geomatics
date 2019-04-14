@@ -4,21 +4,39 @@ clc; clear; close all;
 format long
 
 % NominalUEREfixed.
-P1 = load('dataset_CPT_20180328T122038');
-P2 = load('dataset_HEL_20180329T160900');  % Dynamic
-P3 = load('dataset_LYB_20180328T121914');
-P4 = load('dataset_SHA_20180328T121804');
-P5 = load('dataset_STA_20180328T121529');
-P2 = load('dataset_TRN_20180328T121701');
+P1n = load('dataset_CPT_20180328T122038');
+P2n = load('dataset_HEL_20180328T122158');  
+P3n = load('dataset_LYB_20180328T121914');
+P4n = load('dataset_SHA_20180328T121804');
+P5n = load('dataset_STA_20180328T121529');
+P6n = load('dataset_TRN_20180328T121701');
+
+% RealisticUEREdynamic.
+P1r = load('dataset_CPT_20180329T160947');
+P2r = load('dataset_HEL_20180329T160900');
+P3r = load('dataset_LYB_20180329T161023');
+P4r = load('dataset_SHA_20180329T161103');
+P5r = load('dataset_STA_20180329T161418');
+P6r = load('dataset_TRN_20180329T161139');
 
 place = '     Point';  % Label for world plot
 
-time = length(P2.RHO.GPS(1,:));
-xTicks = [0 : 400 : time];
+P = P4n
+
+cnt = 0;
+rhoMin = NaN;
+rhoMax = NaN;
+for set =  ["GPS", "GAL", "GLO", "BEI"]
+rhoMin = min(rhoMin, min(min(P.RHO.(set))));
+rhoMax = max(rhoMax, max(max(P.RHO.(set))));
+cnt = cnt + 1;
+    
+time = length(P.RHO.(set)(1,:));
+xTicks = [0 : 800 : time];
 
 sat = zeros(1,time);
 for s = 1 : time
-    sat(s) = sum(not(isnan(P2.RHO.GPS(:,s))));
+    sat(s) = sum(not(isnan(P.RHO.(set)(:,s))));
 end
 
 %% Recursive Least Mean Square
@@ -29,8 +47,8 @@ for n = 1 : time  % time instants
     xHat = [0, 0, 0, 0]; 
     
     % Variables
-    rho = P2.RHO.GPS(:,n);
-    visSat = find(not(isnan(P2.RHO.GPS(:,n))));  %visible satellites indexes
+    rho = P.RHO.(set)(:,n);
+    visSat = find(not(isnan(P.RHO.(set)(:,n))));  %visible satellites indexes
     H = zeros(length(visSat),4);
     H(:,4) = 1;
                          
@@ -38,7 +56,7 @@ for n = 1 : time  % time instants
         
         % Step 0: rhoHat and H_matrix evaluation
         for s = 1 : length(visSat)  % Iterations on satellites
-            e = P2.SAT_POS_ECEF.GPS(visSat(s)).pos(n,:) - xHat(1:3);
+            e = P.SAT_POS_ECEF.(set)(visSat(s)).pos(n,:) - xHat(1:3);
             rhoHat(s) = sqrt(sum(e.^2));
             H(s,1:3) = [e/rhoHat(s)];
         end  
@@ -66,9 +84,9 @@ for tPos = 1 : length(pos)
     coord(tPos, 1:3) = ecef2lla(pos(tPos, 1:3));  %coord è in lon,lat,alt
 end
 
-L = length(P2.RHO.GPS(:,1))
+L = length(P.RHO.(set)(:,1))
 for c = 1 : L
-    r = P2.RHO.GPS(c,:);
+    r = P.RHO.(set)(c,:);
     r = r(~(isnan(r)));
     diffR = diff(r, 2);
     sigmaUERE(c)=var(diffR);
@@ -87,24 +105,29 @@ writeKML_GoogleEarth(filename, coord(:, 1), coord(:, 2), coord(:, 3))
 
 %% Plot: Visible satellites vs time.
 figure(1)
+subplot(2, 2, cnt)
 plot(sat, 'linewidth', 2)
 xlabel("Time")
-ylabel("Number of visible satellites")
-title("Number of visible satellites vs Time")
-ylim([min(sat)-1, max(sat)+1])
+ylabel("No. of visible satellites")
+title([set])%, "No. of visible satellites over time"])
+ylim([5 20])
+% ylim([min(sat)-1, max(sat)+1])
 xlim([0,time])
 xticks(xTicks);
 grid on
+grid minor
 
 %% Plot: Pseudoranges vs time.
 figure(2)
-plot([1:1:time], P2.RHO.GPS', '.')
+subplot(2, 2, cnt)
+plot(P.RHO.(set)', 'linewidth', 1)
 xlabel("Time")
 ylabel("Pseudorange")
-title("Pseudoranges vs Time")
+title([set])
 xlim([0,time])
 xticks(xTicks);
 grid on
+grid minor
 
 %% Plot: World Map Plot
 figure(3)
@@ -147,12 +170,14 @@ xticks(xTicks);
 
 std(errors)
 
+end
 
-
-
-
-
-
+% 
+% figure(2)
+% for k = 1:4
+%    subplot(2,2,k);
+%    ylim([rhoMin, rhoMax]);
+% end
 
 
 
@@ -165,8 +190,8 @@ for n = 1 : time  % time instants
     xHat = [0, 0, 0, 0]; 
     
     % Variables
-    rho = P2.RHO.GPS(:,n);
-    visSat = find(not(isnan(P2.RHO.GPS(:,n))));  % Visible sat. indexes
+    rho = P.RHO.(set)(:,n);
+    visSat = find(not(isnan(P.RHO.(set)(:,n))));  % Visible sat. indexes
     H = zeros(length(visSat),4);
     H(:,4) = 1;
                          
@@ -174,7 +199,7 @@ for n = 1 : time  % time instants
         
         % Step 0: rhoHat and H_matrix evaluation
         for s = 1 : length(visSat)  % Iterations on satellites
-            e = P2.SAT_POS_ECEF.GPS(visSat(s)).pos(n,:) - xHat(1:3);
+            e = P.SAT_POS_ECEF.(set)(visSat(s)).pos(n,:) - xHat(1:3);
             rhoHat(s) = sqrt(sum(e.^2));
             H(s,1:3) = [e/rhoHat(s)];
         end  
@@ -218,7 +243,7 @@ grid on
 
 %% Plot: Pseudoranges vs time.
 figure(12)
-plot([1:1:time], P2.RHO.GPS', '.')
+plot([1:1:time], P.RHO.(set)', '.')
 xlabel("Time")
 ylabel("Pseudorange")
 title("Pseudoranges vs Time")
