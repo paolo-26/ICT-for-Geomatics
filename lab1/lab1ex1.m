@@ -21,18 +21,20 @@ P6r = load('dataset_TRN_20180329T161139');
 
 place = '     Point';  % Label for world plot
 
-P = P4n
+P = P2r
 
 cnt = 0;
 rhoMin = NaN;
 rhoMax = NaN;
+minCor = [NaN NaN];
+maxCor = [NaN NaN];
 for set =  ["GPS", "GAL", "GLO", "BEI"]
 rhoMin = min(rhoMin, min(min(P.RHO.(set))));
 rhoMax = max(rhoMax, max(max(P.RHO.(set))));
 cnt = cnt + 1;
     
 time = length(P.RHO.(set)(1,:));
-xTicks = [0 : 800 : time];
+xTicks = [0 : 900 : time];
 
 sat = zeros(1,time);
 for s = 1 : time
@@ -40,6 +42,15 @@ for s = 1 : time
 end
 
 %% Recursive Least Mean Square
+
+L = length(P.RHO.(set)(:,1))
+for c = 1 : L
+    r = P.RHO.(set)(c,:);
+    r = r(~(isnan(r)));
+    diffR = diff(r, 2);
+    sigmaUERE(c)=std(diffR);
+end
+R = diag(sigmaUERE).^2;
 
 for n = 1 : time  % time instants
     
@@ -74,6 +85,8 @@ for n = 1 : time  % time instants
     
     G = inv(H.'*H);
     pdop(n) = sqrt(trace(G(1:end-1, 1:end-1)));
+    gdop(n) = sqrt(trace(G));
+    sigmaX(n) = sqrt(trace(inv(H.'*H) * H.'*R(visSat, visSat)*H*inv(H.'*H)));
     
     pos(n,1:4) = xHat;  %pos è in x,y,z
     clear rhoHat
@@ -84,14 +97,7 @@ for tPos = 1 : length(pos)
     coord(tPos, 1:3) = ecef2lla(pos(tPos, 1:3));  %coord è in lon,lat,alt
 end
 
-L = length(P.RHO.(set)(:,1))
-for c = 1 : L
-    r = P.RHO.(set)(c,:);
-    r = r(~(isnan(r)));
-    diffR = diff(r, 2);
-    sigmaUERE(c)=var(diffR);
-end
-R = diag(sigmaUERE);
+
 
 % Save position for Google Earth
 filename = '.\lab1\Helsinki.m';
@@ -104,9 +110,20 @@ writeKML_GoogleEarth(filename, coord(:, 1), coord(:, 2), coord(:, 3))
 
 
 %% Plot: Visible satellites vs time.
+
+k = 1;
+satPlot = zeros(6, time);
+for PS = [P1n, P2n, P3n, P4n, P5n, P6n]
+    
+    for s = 1 : time
+        satPlot(k,s) = sum(not(isnan(PS.RHO.(set)(:,s))));
+    end
+    k = k+1;
+end
 figure(1)
 subplot(2, 2, cnt)
-plot(sat, 'linewidth', 2)
+hold on
+plot(satPlot', 'linewidth', 1.5)
 xlabel("Time")
 ylabel("No. of visible satellites")
 title([set])%, "No. of visible satellites over time"])
@@ -122,7 +139,7 @@ figure(2)
 subplot(2, 2, cnt)
 plot(P.RHO.(set)', 'linewidth', 1)
 xlabel("Time")
-ylabel("Pseudorange")
+ylabel("Pseudorange [m]")
 title([set])
 xlim([0,time])
 xticks(xTicks);
@@ -136,40 +153,67 @@ WorldMapPlotter(coord(time,1), coord(time,2), place, 'World')
 %% Plot: Scatter plot of positions
 % Real position is the mean of all positions.
 realPos = [mean(pos(:,1)), mean(pos(:,2)), mean(pos(:,3))];
+%realPos = mean(pos);
 realPosLla = ecef2lla(realPos);
 errors = realPos - pos(:,1:3);
-sigmaX = sqrt(trace(cov(errors)));
+%errors = realPos - pos;
+%posLla = ecef2lla(pos(:,1:3))
+%errors = realPosLla - posLla(:,1:3);
+%sigmaX = sqrt(trace(cov(errors)));
 fprintf("sigmaX = %.6f\n", sigmaX)
-fprintf("Avg. PDOP = %.2d metres\n", mean(pdop))
-fprintf("Avg. sigmaUERE = %.2d\n", nanmean(sigmaUERE))
-res = mean(pdop)*(nanmean(sigmaUERE));
+fprintf("Avg. PDOP = %.6f metres\n", mean(pdop))
+fprintf("Avg. GDOP = %.6f metres\n", mean(gdop))
+fprintf("Avg. sigmaUERE = %.6f\n", nanmean(sigmaUERE))
+res = mean(gdop)*(nanmean(sigmaUERE));
 fprintf("PDOP * sigmaUERE = %.6f\n", res)
 
 figure(4)
+subplot(2, 4, cnt)
+hold on
+minCor(1) = min(minCor(1), min(coord(:,1)));
+minCor(2) = min(minCor(2), min(coord(:,2)));
+maxCor(1) = max(maxCor(1), max(coord(:,1)));
+maxCor(2) = max(maxCor(2), max(coord(:,2)));
 geoshow(coord(:,1), coord(:,2),'DisplayType', 'point', 'Marker', '.')
 geoshow(realPosLla(1), realPosLla(2),'DisplayType', 'point',...
         'MarkerEdgeColor','blue', 'Marker','o', 'MarkerFaceColor', 'green')
-legend('Estimated positions', 'Real position')
+legend('Estimated', 'Real')
 xlabel('Longitude')
 ylabel('Latitude')
-title('Positions')
-axis square; grid on;
+%xlim([24.936 24.94])
+%ylim([60.1696 60.17])
+title([set])%'Positions')
+axis equal; axis square; grid on;
+
+
+% %% Plot: PDOP vs time.
+% figure(5)
+% hold on
+% plot(pdop)
+% title("Position dilution of precision")
+% grid minor
+% xlabel('Time')
+% ylabel('PDOP')
+% xlim([0,time])
+% xticks(xTicks);
 
 %% Plot: PDOP vs time.
 figure(5)
+subplot(2, 2, cnt)
 hold on
-plot(pdop)
-title("Position dilution of precision")
+% plot(gdop)
+plot(gdop*nanmean(sigmaUERE))
+plot(sigmaX)
+title([set]) %"Dilution of precision")
 grid minor
 xlabel('Time')
-ylabel('PDOP')
+%ylabel('PDOP')
 xlim([0,time])
 xticks(xTicks);
-
-
+legend('GDOP \cdot \sigma_{UERE}', '\sigma_X', 'location', 'best')
 
 std(errors)
-
+clear R  sigmaUERE sigmaX H G
 end
 
 % 
@@ -180,9 +224,45 @@ end
 % end
 
 
+% 
+% 
+% figure(4)
+% for k = 1:4
+%    subplot(2, 2, k)
+%    %xlim([minCor(2), maxCor(2)])
+%    ylim([minCor(1), maxCor(1)])
+%    axis square
+% end
 
+
+
+
+P = P2r
+cnt = 0;
+rhoMin = NaN;
+rhoMax = NaN;
+for set =  ["GPS", "GAL", "GLO", "BEI"]
+rhoMin = min(rhoMin, min(min(P.RHO.(set))));
+rhoMax = max(rhoMax, max(max(P.RHO.(set))));
+cnt = cnt + 1;
+    
+time = length(P.RHO.(set)(1,:));
+xTicks = [0 : 900 : time];
+
+sat = zeros(1,time);
+for s = 1 : time
+    sat(s) = sum(not(isnan(P.RHO.(set)(:,s))));
+end
 
 %% WLMS
+L = length(P.RHO.(set)(:,1))
+for c = 1 : L
+    r = P.RHO.(set)(c,:);
+    r = r(~(isnan(r)));
+    diffR = diff(r, 2);
+    sigmaUERE(c)=std(diffR);
+end
+R = diag(sigmaUERE).^2;
 
 for n = 1 : time  % time instants
     
@@ -220,36 +300,45 @@ for n = 1 : time  % time instants
     end
     
     H_w = H_w.';
-    G = inv(H_w.'*H_w);
+    G = inv(H.'*H);
     pdop(n) = sqrt(trace(G(1:end-1, 1:end-1)));
+    gdop(n) = sqrt(trace(G));
+    sigmaX(n) = sqrt(trace(inv(H.'*H) * H.'*R(visSat, visSat)*H*inv(H.'*H)));
     
     pos(n,1:4) = xHat;  %pos è in x,y,z
     clear rhoHat
     clear xHat
 end
 
+for tPos = 1 : length(pos)
+    coord(tPos, 1:3) = ecef2lla(pos(tPos, 1:3));  %coord è in lon,lat,alt
+end
 
 
 %% Plot: Visible satellites vs time.
-figure(11)
-plot(sat, 'linewidth', 2)
-xlabel("Time")
-ylabel("Number of visible satellites")
-title("Number of visible satellites vs Time")
-ylim([min(sat)-1, max(sat)+1])
-xlim([0,time])
-xticks(xTicks);
-grid on
+% figure(11)
+% plot(sat, 'linewidth', 2)
+% xlabel("Time")
+% ylabel("Number of visible satellites")
+% title("Number of visible satellites vs Time")
+% ylim([min(sat)-1, max(sat)+1])
+% xlim([0,time])
+% xticks(xTicks);
+% grid on
 
 %% Plot: Pseudoranges vs time.
 figure(12)
-plot([1:1:time], P.RHO.(set)', '.')
+subplot(2, 2, cnt)
+plot(P.RHO.(set)', 'linewidth', 1)
+% plot([1:1:time], P.RHO.(set)', '.')
 xlabel("Time")
-ylabel("Pseudorange")
-title("Pseudoranges vs Time")
+ylabel("Pseudorange [m]")
+title([set])
 xlim([0,time])
 xticks(xTicks);
 grid on
+grid minor
+
 
 %% Plot: World Map Plot
 figure(13)
@@ -257,38 +346,57 @@ WorldMapPlotter(coord(time,1), coord(time,2), place, 'World')
 
 %% Plot: Scatter plot of positions
 % Real position is the mean of all positions.
-realPos = [mean(pos(:,1)), mean(pos(:,2)), mean(pos(:,3))];
-realPosLla = ecef2lla(realPos);
-errors = realPos - pos(:,1:3);
-sigmaX = sqrt(trace(cov(errors)));
+% realPos = [mean(pos(:,1)), mean(pos(:,2)), mean(pos(:,3))];
+% realPosLla = ecef2lla(realPos);
+% errors = realPos - pos(:,1:3);
+% sigmaX = sqrt(trace(cov(errors)));
 
 fprintf("Avg. PDOP = %.2d metres\n", mean(pdop))
 fprintf("Error: %.2d metres\n", sigmaX)
 fprintf("Avg. sigmaUERE = %.2d\n", nanmean(sigmaUERE))
 mean(pdop)*(nanmean(sigmaUERE))
 
-figure(14)
+figure(4)
+subplot(2, 4, cnt+4)
+hold on
 geoshow(coord(:,1), coord(:,2),'DisplayType', 'point', 'Marker', '.')
 geoshow(realPosLla(1), realPosLla(2),'DisplayType', 'point',...
         'MarkerEdgeColor','blue', 'Marker','o', 'MarkerFaceColor', 'green')
-legend('Estimated positions', 'Real position')
+legend('Estimated', 'Real')
 xlabel('Longitude')
 ylabel('Latitude')
-title('Positions')
-axis square; grid on;
+title([set])%'Positions')
+axis equal; axis square; grid on;
+
 
 %% Plot: PDOP vs time.
-figure(5)
-plot(pdop)
-title("Position dilution of precision")
-legend
+figure(15)
+subplot(2, 2, cnt)
+hold on
+plot(gdop)
+plot(sigmaX)
+title([set])%"Dilution of precision")
+legend('GDOP', '\sigma_X', 'location', 'best')
 xlabel('Time')
-ylabel('PDOP')
+% ylabel('PDOP')
 xlim([0,time])
 xticks(xTicks);
+grid on
+grid minor
 
 
 
 %% end
-close figure 3 13
 std(errors)
+clear R  sigmaUERE sigmaX H G 
+end
+
+
+figure(4)
+%linkaxes([subplot(2,4,1),subplot(2,4,2),subplot(2,4,3),subplot(2,4,4),...
+%    subplot(2,4,5),subplot(2,4,6),subplot(2,4,7),subplot(2,4,8)],'xy')
+linkaxes([subplot(2,4,1),subplot(2,4,2),subplot(2,4,3),...
+    subplot(2,4,5),subplot(2,4,6),subplot(2,4,7)],'xy')
+
+% figure(14)
+% linkaxes([subplot(2,2,1),subplot(2,2,2),subplot(2,2,3),subplot(2,2,4)],'xy')
