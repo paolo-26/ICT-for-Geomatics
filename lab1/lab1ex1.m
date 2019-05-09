@@ -1,6 +1,6 @@
 % Code for tasks 1-2
 
-clc; clear; %close all;
+clc; clear; close all;
 format short
 
 % NominalUEREfixed.
@@ -29,7 +29,7 @@ P6r = load('dataset_TRN_20180329T161139');
 
 place = '     Point';  % Label for world plot
 
-P = P6n;
+P = P6r;
 
 cnt = 0;
 rhoMin = NaN;
@@ -72,7 +72,7 @@ for n = 1 : time  % time instants
     H = zeros(length(visSat),4);
     H(:,4) = 1;
                          
-    for k = 1:10  % Iterations of algorithm
+    for k = 1:7  % Iterations of algorithm
         
         % Step 0: rhoHat and H_matrix evaluation
         for s = 1 : length(visSat)  % Iterations on satellites
@@ -106,7 +106,12 @@ end
 % fprintf("LMS sigmaX for %s =\n", set)
 % display(posError')
 fprintf("LMS sigmaX for %s = %.4f \n", set, sqrt(trace(cov(pos(1:3, 1:3)))))
-lmsSigmaX(cnt) = sqrt(trace(cov(pos(1:3, 1:3))));
+
+cov_pos = cov(pos);
+cov_pos = cov_pos(1:3, 1:3);
+cov_pos = trace(cov_pos);
+lmsSigmaX(cnt) = sqrt(cov_pos);
+
 for tPos = 1 : length(pos)
     coord(tPos, 1:3) = ecef2lla(pos(tPos, 1:3));  %coord è in lon,lat,alt
 end
@@ -309,7 +314,7 @@ for n = 1 : time  % time instants
     H = zeros(length(visSat),4);
     H(:,4) = 1;
                          
-    for k = 1:10  % Iterations of algorithm
+    for k = 1:7  % Iterations of algorithm
         
         % Step 0: rhoHat and H_matrix evaluation
         for s = 1 : length(visSat)  % Iterations on satellites
@@ -353,6 +358,10 @@ for tPos = 1 : length(pos)
 end
 
 mPdop(cnt,2) = mean(pdop);
+cov_pos = cov(pos);
+cov_pos = cov_pos(1:3, 1:3);
+cov_pos = trace(cov_pos);
+wlmsSigmaX(cnt) = sqrt(cov_pos);
 
 %% Plot: Visible satellites vs time.
 % figure(11)
