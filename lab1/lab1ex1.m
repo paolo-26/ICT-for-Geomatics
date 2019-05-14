@@ -29,7 +29,7 @@ P6r = load('dataset_TRN_20180329T161139');
 
 place = '     Point';  % Label for world plot
 
-P = P6r;
+P = P1n;
 
 cnt = 0;
 rhoMin = NaN;
@@ -95,6 +95,7 @@ for n = 1 : time  % time instants
     G = inv(H.'*H);
     pdop(n) = sqrt(trace(G(1:end-1, 1:end-1)));
     gdop(n) = sqrt(trace(G));
+    deltaX(n) = ((inv(H.'*H))*H.')*nanmean(sigmaUERE);
     sigmaX(n) = sqrt(trace(inv(H.'*H) * H.'*R(visSat, visSat)*H*inv(H.'*H)));
     
     pos(n,1:4) = xHat;  %pos è in x,y,z
@@ -108,6 +109,7 @@ end
 fprintf("LMS sigmaX for %s = %.4f \n", set, sqrt(trace(cov(pos(1:3, 1:3)))))
 
 cov_pos = cov(pos);
+lmsSigmaXfull(cnt) = sqrt(trace(cov_pos));
 cov_pos = cov_pos(1:3, 1:3);
 cov_pos = trace(cov_pos);
 lmsSigmaX(cnt) = sqrt(cov_pos);
@@ -119,13 +121,12 @@ end
 mPdop(cnt,1) = mean(pdop);
 
 % Save position for Google Earth
-% filename = '.\lab1\Helsinki.m';
+% filename = '.\lab1\realistic_gps_capetown_lms';
 % writeKML_GoogleEarth(filename, coord(:, 1), coord(:, 2), coord(:, 3))
 
 %plot(errors)
 %H2=H(1:end-1,1:end-1)
 %pdop = sqrt(trace(inv(H2'*H2)))
-
 
 
 %% Plot: Visible satellites vs time.
