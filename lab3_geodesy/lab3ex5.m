@@ -54,7 +54,8 @@ for i = 1 : size(datumA, 1)
     
 end
 
-x = (A.'*A)\(A.'*lo) * 1e6;
+x = (A.'*A)\(A.'*lo);
+x(1:3, 1) = x(1:3,1) * 1e6;
 v = (A*x - lo) ;
 
 Names = {'Tx (translation)', 'Ty (translation)', 'Tz (translation)', 'lambda (scaling)', 'Rx (rotation)', 'Ry (rotation)', 'Rz (rotation)'};
