@@ -55,7 +55,7 @@ for i = 1 : size(datumA, 1)
 end
 
 x = (A.'*A)\(A.'*lo) * 1e6;
-v = (A*x - lo) *1e6;
+v = (A*x - lo) ;
 
 Names = {'Tx (translation)', 'Ty (translation)', 'Tz (translation)', 'lambda (scaling)', 'Rx (rotation)', 'Ry (rotation)', 'Rz (rotation)'};
 x = array2table(x, 'rowNames', Names)
